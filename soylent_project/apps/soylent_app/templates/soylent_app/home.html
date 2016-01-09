@@ -1,0 +1,243 @@
+<!doctype html>
+{% load bootstrap3 %}
+{% bootstrap_javascript jquery=1 %}
+{% bootstrap_css %}
+{% load static %}
+<html lang="en">
+<head>
+
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/jquery-ui.min.js"></script>
+<script src="https://cdn.jsdelivr.net/bootstrap.listgroup/1.1.2/listgroup.min.js"></script>
+<script src="//d3js.org/d3.v3.min.js" charset="utf-8"></script>
+{% include 'autocomplete_light/static.html' %}
+
+<style>
+div.bar {
+  display: inline-block;
+  width: 20px;
+  height: 75px;
+  background-color: teal;
+}
+
+.chart div {
+  font: 10px sans-serif;
+  background-color: steelblue;
+  text-align: right;
+  padding: 3px;
+  margin: 1px;
+  color: white;
+}
+
+.ui-autocomplete {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  float: left;
+  display: none;
+  min-width: 160px;
+  _width: 160px;
+  padding: 4px 0;
+  margin: 2px 0 0 0;
+  list-style: none;
+  background-color: #ffffff;
+  border-color: #ccc;
+  border-color: rgba(0, 0, 0, 0.2);
+  border-style: solid;
+  border-width: 1px;
+  -webkit-border-radius: 5px;
+  -moz-border-radius: 5px;
+  border-radius: 5px;
+  -webkit-box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+  -moz-box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+  -webkit-background-clip: padding-box;
+  -moz-background-clip: padding;
+  background-clip: padding-box;
+  *border-right-width: 2px;
+  *border-bottom-width: 2px;
+
+  .ui-menu-item > a.ui-corner-all {
+    display: block;
+    padding: 3px 15px;
+    clear: both;
+    font-weight: normal;
+    line-height: 18px;
+    color: #555555;
+    white-space: nowrap;
+
+    &.ui-state-hover, &.ui-state-active {
+      color: #ffffff;
+      text-decoration: none;
+      background-color: #0088cc;
+      border-radius: 0px;
+      -webkit-border-radius: 0px;
+      -moz-border-radius: 0px;
+      background-image: none;
+    }
+  }
+}
+.hover_highlight {
+        background-color: #fff;
+        color: #337ab7;
+}
+
+#selection_list, #source_list {
+        list-style-type: none;
+        margin: 0;
+        margin-right: 10px;
+        background: #eee;
+        padding: 5px;
+        min-width: 30%;
+        min-height: 30px;
+}
+</style>
+
+
+<script type="text/javascript">
+$( init );
+
+function init() {
+        $( "#source_list" ).sortable({connectWith: '#selection_list'});
+        $( "#selection_list" ).sortable({connectWith: '#source_list'});
+        $("#query").keypress(
+            function() {
+                var input = $('#query').val();
+                if(input.length <= 2) return;
+                populate_list();
+            }
+        );
+        initialize_list_group();
+};
+
+function initialize_list_group() {
+        $( ".list-group-item" ).hover(
+          function() {
+                  var classes = $(this).attr('class')
+                  $(this).addClass('hover_highlight');
+          }, function() {
+                  $(this).removeClass('hover_highlight');
+          }
+        );
+
+        $(".list-group-item").click(
+            function() {
+                    $('#price-button').attr('class', 'btn'); 
+                    $('#price-button').attr('href', 'google.com');
+                    visualize_nutrition_data(this.id);
+            }
+        );
+};
+
+function visualize_nutrition_data(ndb_no) {
+        var height = 500;
+        var width = 960;
+        var barHeight = 20
+        var margin = {top: 20, right: 20, bottom: 20, left: 50};
+        var xScale = d3.scale.linear()
+                .domain([0, 1])
+                .range([0, width]);
+        var yScale = d3.scale.linear()
+                .range([height - margin.top - margin.bottom, 0])
+        var svg = d3.select('body').append('svg')
+                .attr('height', height)
+                .attr('width', width)
+                .append('g')
+        var chart = d3.select('body').select('.chart');
+        $.ajax({
+                url: '/api/get_nutrients/',
+                type: 'GET',
+                data: { ndb_no: ndb_no },
+                success: function(json) {
+                    var bar = chart.selectAll('g')
+                        .data(json)
+                        .enter()
+                        .append('g')
+                        .attr('transform', function(d, i) {
+                                return 'translate(0,' + i * barHeight + ')';
+                        });
+                    bar.append('rect')
+                        .attr('width', x)
+                        .attr('height', barHeight - 1);
+                    bar.append('text')
+                        .attr('x', function(d) { return x(d.value) - 3; } )
+                        .attr('y', barHeight / 2)
+                        .attr('dy', '.35em')
+                        .text(function(d) { return d.name; });
+                },
+                error: function(xhr) {
+                        alert(xhr.responseText);
+                }
+        });
+};
+
+function populate_list() {
+        $.ajax({
+            url: '/api/get_foods/',
+            type: 'GET',
+            data: { food_str: $('#query').val() },
+            success: function(json) {
+                    $('#source_list').empty();
+                    $.each(json, function( index, value ) {
+                            $('#source_list').append(
+                                "<li " +
+                                    "class='list-group-item' " +
+                                    "id='" + value['id']  +
+                                 "'>" +
+                                    value['label'] + value['id'] + ": " + value['price'] +
+                                "</li>");
+                    });
+                    initialize_list_group();
+            },
+            error: function(xhr) {
+                    alert(xhr.responseText);
+            }
+        });
+};
+</script>
+
+</head>
+
+<body>
+    <nav class="navbar navbar-default">
+        <div class='navbar-header'>
+            <a class='navbar-brand' href='#'>SoyLint</a>
+        </div>
+        <div id='navbar' class='navbar-collapse collapse'>
+                <ul class='nav navbar-nav'>
+                        <li class='active'>
+                                <a href='#Recipe'>Ingredients</a>
+                        </li>
+                        <li>
+                                <a href='#Profile'>Profile</a>
+                        </li>
+                        <li>
+                                <a href='#User'>User</a>
+                        </li>
+                        <li>
+                                <a href='#WhatWhat'>WhatWhat</a>
+                        </li>
+        </div>
+    </nav>
+    <div id="content" class='container'>
+            <div class='ui-widget form-group'>
+                    <label for='query'>Search:</label>
+                    <input type='text' class='form-control' id='query'>
+            </div>
+            <ul id='source_list', class='list-group col-md-5' style='float: left'>
+                {% for food in foods_list %}
+                <li class='list-group-item'>{{ food }}</li>
+                {% endfor %}
+            </ul>
+            <ul id='selection_list', class='list-group col-md-5' style='float: right'>
+            </ul>
+    </div>
+    <div class='container'>
+            <a id='price-button' class='btn disabled'>
+                    Edit Food Price
+            </a>
+    </div>
+    <div class='chart container'>
+    </div>
+</body>
+</html>
